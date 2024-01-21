@@ -8,10 +8,6 @@ async function instantiate(module, imports = {}) {
           return Date.now() * Math.random();
         })();
       },
-      "performance.now"() {
-        // ~lib/bindings/dom/performance.now() => f64
-        return performance.now();
-      },
       abort(message, fileName, lineNumber, columnNumber) {
         // ~lib/builtins/abort(~lib/string/String | null?, ~lib/string/String | null?, u32?, u32?) => void
         message = __liftString(message >>> 0);
@@ -22,6 +18,10 @@ async function instantiate(module, imports = {}) {
           // @external.js
           throw Error(`${message} in ${fileName}:${lineNumber}:${columnNumber}`);
         })();
+      },
+      "Date.now"() {
+        // ~lib/bindings/dom/Date.now() => f64
+        return Date.now();
       },
       "console.log"(text) {
         // ~lib/bindings/dom/console.log(~lib/string/String) => void
@@ -34,8 +34,8 @@ async function instantiate(module, imports = {}) {
   const memory = exports.memory || imports.env.memory;
   const adaptedExports = Object.setPrototypeOf({
     randomNumbers(numberOfRandomNumbers) {
-      // assembly/index/randomNumbers(i32) => ~lib/staticarray/StaticArray<i8>
-      return __liftStaticArray(__getI8, 0, exports.randomNumbers(numberOfRandomNumbers) >>> 0);
+      // assembly/index/randomNumbers(i32) => ~lib/typedarray/Uint8Array
+      return __liftTypedArray(Uint8Array, exports.randomNumbers(numberOfRandomNumbers) >>> 0);
     },
   }, exports);
   function __liftString(pointer) {
@@ -49,23 +49,15 @@ async function instantiate(module, imports = {}) {
     while (end - start > 1024) string += String.fromCharCode(...memoryU16.subarray(start, start += 1024));
     return string + String.fromCharCode(...memoryU16.subarray(start, end));
   }
-  function __liftStaticArray(liftElement, align, pointer) {
+  function __liftTypedArray(constructor, pointer) {
     if (!pointer) return null;
-    const
-      length = __getU32(pointer - 4) >>> align,
-      values = new Array(length);
-    for (let i = 0; i < length; ++i) values[i] = liftElement(pointer + (i << align >>> 0));
-    return values;
+    return new constructor(
+      memory.buffer,
+      __getU32(pointer + 4),
+      __dataview.getUint32(pointer + 8, true) / constructor.BYTES_PER_ELEMENT
+    ).slice();
   }
   let __dataview = new DataView(memory.buffer);
-  function __getI8(pointer) {
-    try {
-      return __dataview.getInt8(pointer, true);
-    } catch {
-      __dataview = new DataView(memory.buffer);
-      return __dataview.getInt8(pointer, true);
-    }
-  }
   function __getU32(pointer) {
     try {
       return __dataview.getUint32(pointer, true);

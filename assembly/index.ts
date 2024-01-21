@@ -1,17 +1,30 @@
 // The entry file of your WebAssembly module.
 
-export function randomNumber(): i8 {
-  return i8(ceil(Math.random() * 6))
+export function randomNumber(): u8 {
+  return u8(ceil(Math.random() * 6));
 }
 
-export function randomNumbers(numberOfRandomNumbers: i32): StaticArray<i8> {
-  console.log(`${process.hrtime()} WASM start generating ${numberOfRandomNumbers} random numbers.`)
+export function randomNumbers(numberOfRandomNumbers: i32): Uint8Array {
+  if (numberOfRandomNumbers > 1_000_000) {
+    throw new Error(
+      "Size of random numbers is too large! Please use a number equal or less than one million",
+    );
+  }
 
-  const resultArray = new StaticArray<i8>(numberOfRandomNumbers)
+  console.log(
+    `${new Date(
+      process.time(),
+    )} WASM start generating ${numberOfRandomNumbers} random numbers.`,
+  );
+
+  const resultArray = new Uint8Array(numberOfRandomNumbers);
   for (let index = 0; index < numberOfRandomNumbers; index++) {
     resultArray[index] = randomNumber();
   }
-  console.log(`${process.hrtime()} WASM finished generating ${numberOfRandomNumbers} random numbers.`)
+  console.log(
+    `${new Date(
+      process.time(),
+    )} WASM finished generating ${numberOfRandomNumbers} random numbers.`,
+  );
   return resultArray;
 }
-
